@@ -13,6 +13,9 @@ local playerHealth = 100
 local isRopeGrappleHookZip = false
 local isLeftHandCrush = false
 local isRightHandCrush = false
+local isStrengthActivated = false
+local strengthDuration = 0
+local strengthActivatedTime = 0
 local isLoreCollectibleRegister = false
 local isMaxHealthUpRegister = false
 local hookIds2 = {}
@@ -23,6 +26,8 @@ local lastReleaseHand = 0
 local forgeTime = 0
 local heartbeatTime = 0
 local healingTime = 0
+
+local playerCharacter = nil;
 
 function SendMessage(context)
 	if context then
@@ -153,7 +158,14 @@ function RegisterHooks()
 	end
 		
 	hookIds = {}
-
+	
+    playerCharacter = FindFirstOf("BHMPlayerCharacter")
+    
+    if(playerCharacter:IsValid()) then
+    	print("Player Character Found")
+    else
+    	print("Player Character Not Found")
+    end
 
     local funcName = "/Script/SDIGamePlugin.SDIInventorySlot:AttachInventory"
 	local hook1, hook2 = RegisterHook(funcName, AttachInventory)
@@ -163,6 +175,14 @@ function RegisterHooks()
 	local hook1, hook2 = RegisterHook(funcName, GrabFromInventory)
 	hookIds[funcName] = { id1 = hook1; id2 = hook2 }
     
+    local funcName = "/Script/BHM.BHMPlayerHand:OnActivateStrength"
+	local hook1, hook2 = RegisterHook(funcName, OnActivateStrength)
+	hookIds[funcName] = { id1 = hook1; id2 = hook2 }
+
+    local funcName = "/Script/BHM.BHMPlayerHand:OnDeactivateStrength"
+	local hook1, hook2 = RegisterHook(funcName, OnDeactivateStrength)
+	hookIds[funcName] = { id1 = hook1; id2 = hook2 }
+	
     local funcName = "/Game/BHM/Blueprints/Player/BP_BHM_PlayerCharacter.BP_BHM_PlayerCharacter_C:OnCharacterDeath"
 	local hook1, hook2 = RegisterHook(funcName, OnCharacterDeath)
 	hookIds[funcName] = { id1 = hook1; id2 = hook2 }
@@ -308,6 +328,23 @@ end
 
 
 -- *******************************************************************
+
+function OnActivateStrength(self)
+	SendMessage("--------------------------------")
+	SendMessage("OnStrengthActivated")
+	strengthActivatedTime = os.clock()
+	if playerCharacter:IsValid() then
+		strengthDuration = playerCharacter:GetPropertyValue("StrengthAbilityDuration")
+		print("Strength Duration: ", strengthDuration)
+	end 
+	isStrengthActivated = true
+end
+
+function OnDeactivateStrength(self)
+	SendMessage("--------------------------------")
+	SendMessage("OnStrengthDeactivated")
+	isStrengthActivated = false
+end
 
 function HideElements(self)
 	SendMessage("--------------------------------")
@@ -920,9 +957,24 @@ function OnCharacterDeath(self)
 	SendMessage(self:get():GetFullName())
 end
 
+function StrengthThrob()
+	if isPause then
+		return
+	end
+	
+	if strengthDuration > 0 then
+		if os.clock() - strengthActivatedTime > strengthDuration then
+			return
+		end
+	end
+	
+	if isStrengthActivated then
+		SendMessage("--------------------------------")
+		SendMessage("StrengthThrob")
+		truegear.play_effect_by_uuid("HeartBeat")
 
-
-
+	end
+end
 
 function HeartBeat()
 	if isPause then
@@ -992,6 +1044,7 @@ end
 
 CheckPlayerSpawned()
 
+LoopAsync(750,StrengthThrob)
 LoopAsync(1000,HeartBeat)
 LoopAsync(150,RopeGrappleHookZip)
 LoopAsync(150,LeftHandCrush)
